@@ -14,7 +14,8 @@ from datetime import date, datetime, timedelta, tzinfo
 from kombu.utils.functional import reprcall
 from kombu.utils.objects import cached_property
 
-from pytz import timezone as _timezone, AmbiguousTimeError, FixedOffset
+from pytz import (timezone as _timezone, AmbiguousTimeError, FixedOffset,
+                  NonExistentTimeError)
 
 from celery.five import python_2_unicode_compatible, string_t
 
@@ -193,7 +194,13 @@ def delta_resolution(dt, delta):
     return dt
 
 
-def remaining(start, ends_in, now=None, relative=False):
+def remaining(
+    start,
+    ends_in,
+    now=None,
+    relative=False,
+    skip_dst_conversion=False
+):
     """Calculate the remaining time for a start date and a timedelta.
 
     For example, "how many seconds left for 30 seconds after start?"
@@ -201,19 +208,32 @@ def remaining(start, ends_in, now=None, relative=False):
     Arguments:
         start (~datetime.datetime): Starting date.
         ends_in (~datetime.timedelta): The end delta.
+        now (~datetime.datetime): Current time and date.
+            Defaults to fetching from :func:`datetime.utcnow`.
         relative (bool): If enabled the end time will be calculated
             using :func:`delta_resolution` (i.e., rounded to the
             resolution of `ends_in`).
-        now (Callable): Function returning the current time and date.
-            Defaults to :func:`datetime.utcnow`.
+        skip_dst_conversion (bool): If enabled, end_time will ignore
+            DST changes. This allows wildcard tasks to be repeated
+            during DST transitions.
 
     Returns:
         ~datetime.timedelta: Remaining time.
     """
     now = now or datetime.utcnow()
+    tz = start.tzinfo
+    if not skip_dst_conversion:
+        start = start.replace(tzinfo=None)
     end_date = start + ends_in
     if relative:
         end_date = delta_resolution(end_date, ends_in)
+    if tz and not skip_dst_conversion:
+        try:
+            end_date = tz.localize(end_date, is_dst=None)
+        except NonExistentTimeError:
+            end_date = tz.localize(end_date, is_dst=False)
+        except AmbiguousTimeError:
+            end_date = tz.localize(end_date, is_dst=True)
     ret = end_date - now
     if C_REMDEBUG:  # pragma: no cover
         print('rem: NOW:%r START:%r ENDS_IN:%r END_DATE:%s REM:%s' % (

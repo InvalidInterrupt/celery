@@ -131,6 +131,7 @@ class schedule(BaseSchedule):
         return remaining(
             self.maybe_make_aware(last_run_at), self.run_every,
             self.maybe_make_aware(self.now()), self.relative,
+            skip_dst_conversion=True
         )
 
     def is_due(self, last_run_at):
@@ -549,6 +550,7 @@ class crontab(BaseSchedule):
         last_run_at = self.maybe_make_aware(last_run_at)
         now = self.maybe_make_aware(self.now())
         dow_num = last_run_at.isoweekday() % 7  # Sunday is day 0, not day 7
+        hr_min_wild = self._orig_hour == "*" or self._orig_minute == "*"
 
         execute_this_date = (
             last_run_at.month in self.month_of_year and
@@ -599,7 +601,8 @@ class crontab(BaseSchedule):
                 else:
                     delta = self._delta_to_next(last_run_at,
                                                 next_hour, next_minute)
-        return self.to_local(last_run_at), delta, self.to_local(now)
+        return (self.to_local(last_run_at), delta, self.to_local(now),
+                False, hr_min_wild)
 
     def remaining_estimate(self, last_run_at, ffwd=ffwd):
         """Estimate of next run time.

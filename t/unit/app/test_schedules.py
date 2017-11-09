@@ -587,8 +587,8 @@ class test_crontab_is_due:
             from dateutil.relativedelta import relativedelta
         except ImportError:
             return
-        l1, d1, n1 = due.remaining_delta(last_ran)
-        l2, d2, n2 = due.remaining_delta(last_ran, ffwd=relativedelta)
+        l1, d1, n1, _, _ = due.remaining_delta(last_ran)
+        l2, d2, n2, _, _ = due.remaining_delta(last_ran, ffwd=relativedelta)
         if not isinstance(d1, relativedelta):
             assert l1 == l2
             for field, value in items(d1._fields()):

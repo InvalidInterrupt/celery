@@ -118,6 +118,24 @@ def test_remaining_relative():
     remaining(datetime.utcnow(), timedelta(hours=1), relative=True)
 
 
+def test_remaining_dst():
+    tz = pytz.timezone("US/Eastern")
+    now = tz.localize(datetime(2017, 11, 5, 7, 0))
+    last_run = tz.localize(datetime(2017, 11, 4, 8, 0))
+    delta = ffwd(
+        weeks=0, weekday=6, hour=8, minute=0, second=0, microsecond=0)
+    assert remaining(last_run, delta, now).total_seconds() == 60 ** 2
+
+
+def test_remaining_no_dst():
+    tz = pytz.timezone("US/Eastern")
+    now = tz.localize(datetime(2017, 11, 5, 1, 55), is_dst=True)
+    last_run = tz.localize(datetime(2017, 11, 5, 1, 30), is_dst=True)
+    delta = ffwd(hour=2, minute=30, second=0, microsecond=0)
+    assert (remaining(last_run, delta, now, False, True).total_seconds() ==
+            35 * 60)
+
+
 class test_timezone:
 
     def test_get_timezone_with_pytz(self):
